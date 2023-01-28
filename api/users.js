@@ -2,42 +2,39 @@ const express = require("express");
 const {requireUser} = require("./utils")
 const usersRouter = express.Router();
 const {
-  getUser,
-} = require("../db/users");
-
-// const jwt = require("jsonwebtoken");
-// const { JWT_SECRET = "do not tell" } = process.env;
+  getUserByUsername,
+} = require("../db/models/users");
+const jwt = require("jsonwebtoken");
+const { JWT_SECRET } = process.env;
 
 
 
 usersRouter.post("/login", async (req, res, next) => {
-  try {
-    const { username, password } = req.body;
-    const user = await getUser({ username, password });
-    if (user) {
-      const token = jwt.sign(
-        {
-          id: user.id,
-          username,
-        },
-        JWT_SECRET,
-        {
-          expiresIn: "1w",
+        const { username, password } = req.body;
+      
+        if (!username || !password) {
+          next({
+            name: "MissingCredentialsError",
+            message: "Please supply both a username and password",
+          });
         }
-      );
-
-      return res.send({ message: "you're logged in!", token, user });
-    } else {
-      next({
-        name: "IncorrectCredentialsError",
-        message: "Username or password is incorrect",
+      
+        try {
+          const user = await getUserByUsername(username);
+          const token = jwt.sign({ id: user.id, username }, JWT_SECRET);
+          if (user && user.password == password) {
+            res.send({ message: "you're logged in!", token, user });
+          } else {
+            next({
+              name: "IncorrectCredentialsError",
+              message: "Username or password is incorrect",
+            });
+          }
+        } catch (error) {
+          console.log(error);
+          next(error);
+        }
       });
-    }
-  } catch (error) {
-    console.log(error);
-    next(error);
-  }
-});
 
 //  GET /api/users/me
 
